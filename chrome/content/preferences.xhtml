@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+      xmlns:html="http://www.w3.org/1999/xhtml">
+  <html:div style="padding: 10px;">
+    <html:h2 style="margin-top: 0;">PubMed Auto-Tag 設定</html:h2>
+
+    <html:div style="margin-bottom: 12px; display: flex; align-items: center;">
+      <html:label style="margin-right: 8px;">キーワードソース:</html:label>
+      <html:select preference="extensions.zotero-pubmed-autotag.keywordSource">
+        <html:option value="mesh">MeSH terms</html:option>
+        <html:option value="authorKeywords">Author Keywords</html:option>
+        <html:option value="both">両方</html:option>
+      </html:select>
+    </html:div>
+
+    <html:div style="margin-bottom: 12px; display: flex; align-items: center;">
+      <html:label style="margin-right: 8px;">NCBI APIキー:</html:label>
+      <html:input type="text" preference="extensions.zotero-pubmed-autotag.ncbiApiKey" style="flex: 1; max-width: 300px;"/>
+    </html:div>
+
+    <html:div style="margin-bottom: 12px;">
+      <html:label style="display: flex; align-items: center;">
+        <html:input type="checkbox" preference="extensions.zotero-pubmed-autotag.notifyOnMissing" style="margin-right: 6px;"/>
+        未掲載・キーワードなし時に通知する
+      </html:label>
+    </html:div>
+
+    <html:div style="margin-bottom: 12px; display: flex; align-items: center;">
+      <html:label style="margin-right: 8px;">未掲載タグ名:</html:label>
+      <html:input type="text" preference="extensions.zotero-pubmed-autotag.missingTagName" style="flex: 1; max-width: 200px;"/>
+    </html:div>
+
+    <html:div style="margin-bottom: 12px;">
+      <html:label style="display: flex; align-items: center;">
+        <html:input type="checkbox" preference="extensions.zotero-pubmed-autotag.autoRunOnAdd" style="margin-right: 6px;"/>
+        アイテム追加時に自動でタグ付けを実行する
+      </html:label>
+    </html:div>
+  </html:div>
+</vbox>
