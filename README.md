@@ -1,6 +1,6 @@
 # Zotero PubMed Auto-Tag
 
-Zotero 7.x に追加された文献アイテムに対して、PubMedからキーワード（MeSH terms / Author Keywords）を自動取得し、タグとして登録するZotero用アドオンです。
+Zotero 7〜10.0 に追加された文献アイテムに対して、PubMedからキーワード（MeSH terms / Author Keywords）を自動取得し、タグとして登録するZotero用アドオンです。
 
 ## 主な機能
 
@@ -17,7 +17,7 @@ Zotero 7.x に追加された文献アイテムに対して、PubMedからキー
 
 ## 動作環境
 
-* Zotero 7.x
+* Zotero 7.0〜10.0.x
 * 注意: Zotero 6 以前のバージョンには対応していません。
 
 ## インストール方法

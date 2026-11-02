@@ -3,13 +3,13 @@
     "zotero-pubmed-autotag@example.com": {
       "updates": [
         {
-          "version": "0.1.1",
+          "version": "0.1.2",
           "update_link": "https://raw.githubusercontent.com/saruko/zotero_tag_auto/master/zotero-pubmed-autotag.xpi",
-          "update_hash": "sha256:48e114fa412caa3089cd22ad1e00913dae4e1d4be1c63901c4adf9b165b61eb5",
+          "update_hash": "sha256:766227575a1f2521c8e5309eb8093cd43e9efa0a2062a9931d5e6fa295a042c1",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
-              "strict_max_version": "9.0.*"
+              "strict_max_version": "10.0.*"
             }
           }
         }

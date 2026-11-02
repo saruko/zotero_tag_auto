@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Zotero PubMed Auto-Tag",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Automatically fetches PubMed keywords (MeSH terms) and tags items.",
   "author": "Antigravity",
   "applications": {
@@ -9,7 +9,7 @@
       "id": "zotero-pubmed-autotag@example.com",
       "update_url": "https://raw.githubusercontent.com/saruko/zotero_tag_auto/master/update.json",
       "strict_min_version": "6.999",
-      "strict_max_version": "9.0.*"
+      "strict_max_version": "10.0.*"
     }
   }
 }
