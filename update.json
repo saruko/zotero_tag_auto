@@ -1,0 +1,19 @@
+{
+  "addons": {
+    "zotero-pubmed-autotag@example.com": {
+      "updates": [
+        {
+          "version": "0.1.1",
+          "update_link": "https://raw.githubusercontent.com/saruko/zotero_tag_auto/master/zotero-pubmed-autotag.xpi",
+          "update_hash": "sha256:48e114fa412caa3089cd22ad1e00913dae4e1d4be1c63901c4adf9b165b61eb5",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "6.999",
+              "strict_max_version": "9.0.*"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

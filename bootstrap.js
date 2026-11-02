@@ -3,7 +3,7 @@
 
 var rootURI;
 var notifierID = null;
-var addEventHistory = [];
+var isShutdown = false;
 
 // Custom error to distinguish network/API errors from "not found"
 class PubMedNetworkError extends Error {
@@ -57,11 +57,18 @@ class RequestQueue {
             this.next();
         }
     }
+
+    // shutdown 時に未実行のリクエストを破棄する。
+    // 待機中の Promise は解決されないまま残るが、プラグイン停止後なので処理は再開されない。
+    clear() {
+        this.queue = [];
+    }
 }
 
 const apiQueue = new RequestQueue();
 
-// HTTP GET helper using Zotero's API (fetch is not available in the plugin sandbox)
+// HTTP GET helper using Zotero's API
+// (Zotero.HTTP はデバッグ出力時に URL 中の api_key を伏せ字にする)
 async function httpGet(url, label) {
     let xhr;
     try {
@@ -97,6 +104,8 @@ function uninstall() {
 
 function startup({ id, version, resourceURI, rootURI: rURI }) {
     rootURI = rURI;
+    // 無効化→再有効化ではスコープが再利用されるため明示的に戻す
+    isShutdown = false;
     Zotero.debug("PubMed Auto-Tag: Starting up...");
     
     // Register Preferences Pane
@@ -119,9 +128,17 @@ function startup({ id, version, resourceURI, rootURI: rURI }) {
 function shutdown() {
     Zotero.debug("PubMed Auto-Tag: Shutting down...");
     
+    isShutdown = true;
+
     // Unregister Notifier
     unregisterNotifier();
-    
+
+    // 未処理の自動実行バッファと API キューを破棄
+    clearTimeout(flushTimer);
+    flushTimer = null;
+    pendingItems = [];
+    apiQueue.clear();
+
     // Remove menus from windows
     let windows = Zotero.getMainWindows();
     for (let win of windows) {
@@ -212,19 +229,10 @@ function registerNotifier() {
                     return;
                 }
                 
-                // Burst detection (Sync/Import prevention)
-                if (checkBurstAndImport(ids)) {
-                    Zotero.debug("PubMed Auto-Tag: Skipped auto-run due to burst detection.");
-                    notifyImportSkipped();
-                    return;
-                }
-                
-                // Process eligible items
-                for (let id of ids) {
-                    let item = await Zotero.Items.getAsync(id);
-                    if (item && shouldProcessItem(item)) {
-                        await processItemAuto(item);
-                    }
+                // 対象アイテムだけを集める (添付ファイル・ノート・空アイテムは数えない)
+                let items = (await Zotero.Items.getAsync(ids)).filter(item => item && shouldProcessItem(item));
+                if (items.length > 0) {
+                    enqueueAutoItems(items);
                 }
             }
         }
@@ -239,23 +247,35 @@ function unregisterNotifier() {
 }
 
 // Burst (Import) Detection
-function checkBurstAndImport(ids) {
-    if (ids.length > 3) {
-        return true;
+// 追加されたアイテムをバッファし、追加が BURST_QUIET_MS 途切れた時点でまとめて判定する。
+// 一括インポート中にイベントが分割されて届いても、途中まで処理されたり通知が連発したりしない。
+const BURST_QUIET_MS = 1000;
+const BURST_MAX_ITEMS = 3;
+var pendingItems = [];
+var flushTimer = null;
+
+function enqueueAutoItems(items) {
+    pendingItems.push(...items);
+    clearTimeout(flushTimer);
+    flushTimer = setTimeout(flushPendingItems, BURST_QUIET_MS);
+}
+
+async function flushPendingItems() {
+    let items = pendingItems;
+    pendingItems = [];
+    flushTimer = null;
+    if (isShutdown) return;
+
+    if (items.length > BURST_MAX_ITEMS) {
+        Zotero.debug(`PubMed Auto-Tag: Skipped auto-run due to burst detection (${items.length} items).`);
+        notifyImportSkipped();
+        return;
     }
-    
-    const now = Date.now();
-    addEventHistory = addEventHistory.filter(t => now - t < 1000);
-    
-    for (let i = 0; i < ids.length; i++) {
-        addEventHistory.push(now);
+
+    for (let item of items) {
+        if (isShutdown) return;
+        await processItemAuto(item);
     }
-    
-    if (addEventHistory.length > 5) {
-        return true;
-    }
-    
-    return false;
 }
 
 // Item Eligibility Check
@@ -289,6 +309,13 @@ function shouldProcessItem(item) {
     return true;
 }
 
+// esearch の idlist を取り出す。URL に埋め込むため数字のみの PMID 以外は捨てる
+function getIdList(data) {
+    const idlist = data && data.esearchresult && data.esearchresult.idlist;
+    if (!Array.isArray(idlist)) return [];
+    return idlist.filter(id => typeof id === 'string' && /^\d+$/.test(id));
+}
+
 // PMID Location Logic
 async function locatePMID(item) {
     // 1. Check Extra field for PMID
@@ -302,14 +329,18 @@ async function locatePMID(item) {
     const apiKeyParam = apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : '';
     
     // 2. Search by DOI
-    let doi = item.getField('DOI');
+    // cleanDOI で DOI 部分だけを取り出し、引用符で囲んで検索する
+    // (Lancet の "10.1016/S0140-6736(20)30183-5" のように括弧を含む DOI が検索式のグループ化と解釈されるのを防ぐ)
+    let doi = Zotero.Utilities.cleanDOI(item.getField('DOI') || '');
     if (doi) {
-        const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(doi)}[doi]&retmode=json${apiKeyParam}`;
+        const term = `"${doi.replace(/"/g, '')}"[doi]`;
+        const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmode=json${apiKeyParam}`;
         // ネットワークエラーは握りつぶさず throw する (NFR-2)
         const resText = await apiQueue.push(() => httpGet(url, "esearch (DOI)"));
         const data = JSON.parse(resText);
-        if (data.esearchresult && data.esearchresult.idlist && data.esearchresult.idlist.length > 0) {
-            return data.esearchresult.idlist[0];
+        const ids = getIdList(data);
+        if (ids.length > 0) {
+            return ids[0];
         }
         // DOI でヒットしなかった場合のみタイトル検索にフォールバック
     }
@@ -322,6 +353,8 @@ async function locatePMID(item) {
         if (creators && creators.length > 0) {
             author = creators[0].lastName || creators[0].firstName || '';
         }
+        // 検索式の構文として解釈される文字を除去
+        author = author.replace(/["()[\]#*]/g, ' ').replace(/\s+/g, ' ').trim();
         let date = item.getField('date') || '';
         let yearM = date.match(/\b\d{4}\b/);
         let year = yearM ? yearM[0] : '';
@@ -340,8 +373,9 @@ async function locatePMID(item) {
         // ネットワークエラーは throw する (NFR-2)
         const resText = await apiQueue.push(() => httpGet(url, "esearch (title)"));
         const data = JSON.parse(resText);
-        if (data.esearchresult && data.esearchresult.idlist && data.esearchresult.idlist.length === 1) {
-            return data.esearchresult.idlist[0];
+        const ids = getIdList(data);
+        if (ids.length === 1) {
+            return ids[0];
         }
     }
     
@@ -440,7 +474,6 @@ async function runManual(window) {
     pw.changeHeadline("PubMed Auto-Tag (手動実行)");
     pw.show();
     
-    let processedCount = 0;
     let successCount = 0;
     let missingCount = 0;
     let errorCount = 0;
@@ -480,7 +513,6 @@ async function runManual(window) {
             itemProgress.setError();
             errorCount++;
         }
-        processedCount++;
     }
     
     pw.addDescription(`完了: 成功 ${successCount} 件, 未掲載 ${missingCount} 件, エラー ${errorCount} 件`);

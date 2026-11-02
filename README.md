@@ -42,3 +42,17 @@ Zoteroのアドオン管理画面から以下の設定を変更できます。
   * タグが見つからない場合に付与する識別タグの名前を設定します（デフォルト: #no-pubmed-tags）。
 * アイテム追加時の自動実行
   * 新規アイテム追加時に自動でタグ付け処理を開始するかどうかを設定します。
+
+## 更新の配信（メンテナ向け）
+
+`manifest.json` の `update_url` は master ブランチの `update.json` を参照します。Zotero は `update.json` の `update_hash`（SHA-256）と一致しない XPI を拒否するため、XPI を作り直したら必ずハッシュも更新してください。
+
+1. `manifest.json` と `update.json` の `version` を同じ値に上げる。
+2. XPI を作成する。
+
+   ```bash
+   rm -f zotero-pubmed-autotag.xpi && zip -X zotero-pubmed-autotag.xpi manifest.json bootstrap.js prefs.js chrome/content/preferences.xhtml
+   ```
+
+3. `sha256sum zotero-pubmed-autotag.xpi` の値を `update.json` の `update_hash`（`sha256:` の後ろ）に書く。
+4. master にマージする。

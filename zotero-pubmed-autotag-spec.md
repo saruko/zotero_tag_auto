@@ -25,7 +25,7 @@ Zoteroに文献アイテムが追加された際、PubMedからキーワード�
 
 | # | 項目 | 選択肢 | デフォルト案 |
 |---|---|---|---|
-| U1 | タグに使うキーワード種別 | (a) MeSH terms (b) Author Keywords (c) 両方 | (a) MeSH terms |
+| U1 | タグに使うキーワード種別 | (a) MeSH terms (b) Author Keywords (c) 両方 | (c) 両方 |
 | U2 | MeSH qualifier(副標目)の扱い | 含める / 主見出しのみ | 主見出しのみ |
 | U3 | 手動追加以外(インポート、同期)のアイテムも対象にするか | する / しない | 手動・翻訳者経由の新規追加のみ |
 | U4 | 既存タグとの重複時 | スキップ(Zoteroは同名タグを重複登録しないため実質不要) | スキップ |
@@ -43,11 +43,11 @@ Zoteroに文献アイテムが追加された際、PubMedからキーワード�
 
 1. アイテムのExtraフィールドまたはPMIDフィールド相当にPMIDがあれば直接使用。
 2. DOIがあれば `esearch` (`term={DOI}[doi]`) でPMIDを検索。
-3. DOIがなければ タイトル + 第一著者 + 年 で `esearch`。ヒットが1件のときのみ採用。複数件・0件は「未掲載」扱い。
+3. DOIがない、またはDOIでヒットしなかった場合は タイトル + 第一著者 + 年 で `esearch`。ヒットが1件のときのみ採用。複数件・0件は「未掲載」扱い。
 
 ### FR-3: キーワード取得
 - `efetch` (`db=pubmed`, `retmode=xml`) でレコードを取得。
-- `<MeshHeading><DescriptorName>` を抽出(U1デフォルト)。
+- `<MeshHeading><DescriptorName>` および `<KeywordList><Keyword>` を抽出(U1デフォルト: 両方)。
 - 取得結果が空(MeSH未付与の新しい論文など)の場合は FR-5 の通知対象とする。
 
 ### FR-4: タグ登録
@@ -86,7 +86,7 @@ Zoteroに文献アイテムが追加された際、PubMedからキーワード�
 
 | キー | 型 | デフォルト | 説明 |
 |---|---|---|---|
-| `keywordSource` | enum | `mesh` | `mesh` / `authorKeywords` / `both` |
+| `keywordSource` | enum | `both` | `mesh` / `authorKeywords` / `both` |
 | `ncbiApiKey` | string | 空 | NCBI APIキー |
 | `notifyOnMissing` | bool | true | 未掲載通知の有効/無効 |
 | `missingTagName` | string | `#no-pubmed-tags` | 未掲載時に付与するタグ名 |
