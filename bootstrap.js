@@ -269,8 +269,14 @@ function shouldProcessItem(item) {
         return false;
     }
 
+    // 「新規アイテム」ボタンで作成した直後の空アイテムは add 時点で未入力なので対象外
+    let extraText = item.getField('extra') || '';
+    if (!item.getField('title') && !item.getField('DOI') && !/(?:PMID|pmid)\s*:\s*(\d+)/.test(extraText)) {
+        return false;
+    }
+
     const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
-    
+
     // preprint: PMID/DOI がある場合のみ対象
     if (itemType === 'preprint') {
         let hasDOI = !!item.getField('DOI');
@@ -320,7 +326,8 @@ async function locatePMID(item) {
         let yearM = date.match(/\b\d{4}\b/);
         let year = yearM ? yearM[0] : '';
         
-        let sanitizedTitle = title.replace(/"/g, '');
+        // Zotero のタイトルは <i>, <sub> 等のリッチテキストタグを含み得るので除去
+        let sanitizedTitle = title.replace(/<[^>]+>/g, '').replace(/"/g, '');
         let term = `"${sanitizedTitle}"[title]`;
         if (author) {
             term += ` AND ${author}[author]`;
@@ -349,9 +356,9 @@ async function fetchAndApplyKeywords(item, pmid) {
     
     const resXmlText = await apiQueue.push(() => httpGet(url, "efetch"));
 
-    // DOMParser はプラグインサンドボックスに存在しないためメインウィンドウから取得する
-    const win = Zotero.getMainWindow();
-    const parser = new win.DOMParser();
+    // DOMParser は Zotero 7 のプラグインサンドボックスに global として提供されている
+    // (メインウィンドウ経由だとウィンドウが無いとき null 参照で落ちる)
+    const parser = new DOMParser();
     const doc = parser.parseFromString(resXmlText, "text/xml");
     
     const parserError = doc.querySelector("parsererror");
@@ -389,7 +396,9 @@ async function fetchAndApplyKeywords(item, pmid) {
     for (let kw of keywords) {
         item.addTag(kw, 1);
     }
-    
+    // 以前の未掲載判定で付いた識別タグを除去 (手動再実行で成功した場合など)
+    item.removeTag(Prefs.get("missingTagName") || "#no-pubmed-tags");
+
     await item.saveTx();
     return keywords.size;
 }
